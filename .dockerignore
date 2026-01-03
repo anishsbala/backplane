@@ -1,0 +1,6 @@
+.git
+build
+node_modules
+dashboard/node_modules
+*.log
+.DS_Store
