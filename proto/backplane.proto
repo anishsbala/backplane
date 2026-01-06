@@ -1,0 +1,169 @@
+syntax = "proto3";
+
+package backplane;
+
+enum TaskKind {
+  TASK_KIND_UNSPECIFIED = 0;
+  PRIME_COUNT = 1;
+}
+
+enum TaskStatus {
+  TASK_STATUS_UNKNOWN = 0;
+  QUEUED = 1;
+  RUNNING = 2;
+  DONE = 3;
+  FAILED = 4;
+}
+
+message Task {
+  string id = 1;
+  string name = 2;
+  TaskKind kind = 3;
+  int64 range_start = 4;
+  int64 range_end = 5;
+  int32 chunk_size = 6;
+  int32 priority = 7;
+  int32 max_attempts = 8;
+  int32 attempts = 9;
+  TaskStatus status = 10;
+  string worker_id = 11;
+  int64 checkpoint = 12;
+  int64 result = 13;
+  int32 progress_percent = 14;
+  string error = 15;
+  int64 created_at = 16;
+  int64 updated_at = 17;
+  int64 lease_expires_at = 18;
+}
+
+message WorkerInfo {
+  string worker_id = 1;
+  string current_task_id = 2;
+  int64 last_seen_at = 3;
+}
+
+message Event {
+  int64 id = 1;
+  int64 timestamp = 2;
+  string type = 3;
+  string task_id = 4;
+  string worker_id = 5;
+  string message = 6;
+}
+
+message SubmitTaskRequest {
+  string name = 1;
+  TaskKind kind = 2;
+  int64 range_start = 3;
+  int64 range_end = 4;
+  int32 chunk_size = 5;
+  int32 priority = 6;
+  int32 max_attempts = 7;
+}
+
+message SubmitTaskReply {
+  bool ok = 1;
+  string task_id = 2;
+  string message = 3;
+}
+
+message LeaseTaskRequest {
+  string worker_id = 1;
+}
+
+message LeaseTaskReply {
+  bool found = 1;
+  Task task = 2;
+  string message = 3;
+}
+
+message HeartbeatRequest {
+  string task_id = 1;
+  string worker_id = 2;
+}
+
+message CheckpointRequest {
+  string task_id = 1;
+  string worker_id = 2;
+  int64 checkpoint = 3;
+  int64 partial_result = 4;
+  int32 progress_percent = 5;
+}
+
+message CompleteTaskRequest {
+  string task_id = 1;
+  string worker_id = 2;
+  bool success = 3;
+  int64 result = 4;
+  string error = 5;
+}
+
+message GetTaskRequest {
+  string task_id = 1;
+}
+
+message GetTaskReply {
+  bool found = 1;
+  Task task = 2;
+  string message = 3;
+}
+
+message ListTasksRequest {}
+
+message ListTasksReply {
+  repeated Task tasks = 1;
+}
+
+message ListWorkersRequest {}
+
+message ListWorkersReply {
+  repeated WorkerInfo workers = 1;
+}
+
+message ListEventsRequest {
+  int32 limit = 1;
+}
+
+message ListEventsReply {
+  repeated Event events = 1;
+}
+
+message StatsRequest {}
+
+message StatsReply {
+  int32 total_tasks = 1;
+  int32 queued_tasks = 2;
+  int32 running_tasks = 3;
+  int32 done_tasks = 4;
+  int32 failed_tasks = 5;
+  int32 average_progress = 6;
+  int32 active_workers = 7;
+}
+
+message RequeueStaleRequest {}
+
+message RequeueStaleReply {
+  int32 requeued = 1;
+}
+
+message ClearTasksRequest {}
+
+message BasicReply {
+  bool ok = 1;
+  string message = 2;
+}
+
+service BackplaneService {
+  rpc SubmitTask(SubmitTaskRequest) returns (SubmitTaskReply);
+  rpc LeaseTask(LeaseTaskRequest) returns (LeaseTaskReply);
+  rpc Heartbeat(HeartbeatRequest) returns (BasicReply);
+  rpc Checkpoint(CheckpointRequest) returns (BasicReply);
+  rpc CompleteTask(CompleteTaskRequest) returns (BasicReply);
+  rpc GetTask(GetTaskRequest) returns (GetTaskReply);
+  rpc ListTasks(ListTasksRequest) returns (ListTasksReply);
+  rpc ListWorkers(ListWorkersRequest) returns (ListWorkersReply);
+  rpc ListEvents(ListEventsRequest) returns (ListEventsReply);
+  rpc Stats(StatsRequest) returns (StatsReply);
+  rpc RequeueStale(RequeueStaleRequest) returns (RequeueStaleReply);
+  rpc ClearTasks(ClearTasksRequest) returns (BasicReply);
+}
