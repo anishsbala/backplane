@@ -1,0 +1,14 @@
+{
+  "name": "backplane-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Small web dashboard for the Backplane demo",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.10.9",
+    "@grpc/proto-loader": "^0.7.13",
+    "express": "^4.19.2"
+  }
+}
