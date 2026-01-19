@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Backplane Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">C++ · gRPC · Protobuf · Redis</p>
+        <h1>Backplane</h1>
+        <p class="subtext">Distributed task queue with checkpointing, retries, priorities, and crash recovery.</p>
+      </div>
+      <div class="hero-actions">
+        <button id="seedButton" class="button primary">Seed demo tasks</button>
+        <button id="requeueButton" class="button">Requeue stale</button>
+        <button id="clearButton" class="button danger">Clear</button>
+      </div>
+    </section>
+
+    <section class="stats-grid" id="statsGrid">
+      <article class="stat-card"><span>Total</span><strong id="statTotal">0</strong></article>
+      <article class="stat-card"><span>Queued</span><strong id="statQueued">0</strong></article>
+      <article class="stat-card"><span>Running</span><strong id="statRunning">0</strong></article>
+      <article class="stat-card"><span>Done</span><strong id="statDone">0</strong></article>
+      <article class="stat-card"><span>Failed</span><strong id="statFailed">0</strong></article>
+      <article class="stat-card"><span>Workers</span><strong id="statWorkers">0</strong></article>
+    </section>
+
+    <section class="grid two-columns">
+      <article class="panel">
+        <div class="panel-title">
+          <div>
+            <h2>Submit task</h2>
+            <p>Creates a PRIME_COUNT task and sends it to the coordinator.</p>
+          </div>
+        </div>
+
+        <form id="taskForm" class="task-form">
+          <label>
+            Name
+            <input name="name" value="manual-prime-count" required>
+          </label>
+          <label>
+            Start
+            <input name="range_start" type="number" value="1" required>
+          </label>
+          <label>
+            End
+            <input name="range_end" type="number" value="500000" required>
+          </label>
+          <label>
+            Priority
+            <input name="priority" type="number" value="6" min="1" max="10" required>
+          </label>
+          <label>
+            Chunk size
+            <input name="chunk_size" type="number" value="20000" required>
+          </label>
+          <label>
+            Max attempts
+            <input name="max_attempts" type="number" value="4" min="1" required>
+          </label>
+          <button class="button primary form-button" type="submit">Submit task</button>
+        </form>
+      </article>
+
+      <article class="panel">
+        <div class="panel-title">
+          <div>
+            <h2>Run workers</h2>
+            <p>The dashboard observes the system. Workers still run as real C++ processes.</p>
+          </div>
+        </div>
+        <div class="command-card">
+          <span>normal workers</span>
+          <code>docker compose --profile workers up worker-a worker-b</code>
+        </div>
+        <div class="command-card">
+          <span>one crash worker</span>
+          <code>docker compose run --rm coordinator ./build/backplane_worker coordinator:50051 crash-worker --crash-after 3 --sleep-ms 250</code>
+        </div>
+        <div class="command-card">
+          <span>watch logs</span>
+          <code>docker compose logs -f coordinator worker-a worker-b</code>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title row-title">
+        <div>
+          <h2>Tasks</h2>
+          <p>Refreshes automatically. Higher priority tasks should lease first.</p>
+        </div>
+        <span id="lastRefresh" class="muted">not loaded yet</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Status</th>
+              <th>Priority</th>
+              <th>Attempts</th>
+              <th>Progress</th>
+              <th>Checkpoint</th>
+              <th>Result</th>
+              <th>Worker</th>
+            </tr>
+          </thead>
+          <tbody id="taskRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="grid two-columns bottom-grid">
+      <article class="panel">
+        <div class="panel-title">
+          <div>
+            <h2>Workers</h2>
+            <p>Last worker contact and assigned task.</p>
+          </div>
+        </div>
+        <div id="workerList" class="list"></div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-title">
+          <div>
+            <h2>Event log</h2>
+            <p>Coordinator events from Redis.</p>
+          </div>
+        </div>
+        <div id="eventList" class="events"></div>
+      </article>
+    </section>
+
+    <p id="toast" class="toast hidden"></p>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
