@@ -13,6 +13,7 @@ struct TaskRecord {
   int priority = 1;
   int max_attempts = 3;
   int attempts = 0;
+  int preemptions = 0;
   std::string status = "QUEUED";
   std::string worker_id;
   int64_t checkpoint = 0;
