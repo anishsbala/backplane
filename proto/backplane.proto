@@ -34,6 +34,7 @@ message Task {
   int64 created_at = 16;
   int64 updated_at = 17;
   int64 lease_expires_at = 18;
+  int32 preemptions = 19;
 }
 
 message WorkerInfo {
@@ -98,6 +99,17 @@ message CompleteTaskRequest {
   string error = 5;
 }
 
+message MaybePreemptRequest {
+  string task_id = 1;
+  string worker_id = 2;
+}
+
+message MaybePreemptReply {
+  bool preempted = 1;
+  int32 queued_priority = 2;
+  string message = 3;
+}
+
 message GetTaskRequest {
   string task_id = 1;
 }
@@ -159,6 +171,7 @@ service BackplaneService {
   rpc Heartbeat(HeartbeatRequest) returns (BasicReply);
   rpc Checkpoint(CheckpointRequest) returns (BasicReply);
   rpc CompleteTask(CompleteTaskRequest) returns (BasicReply);
+  rpc MaybePreempt(MaybePreemptRequest) returns (MaybePreemptReply);
   rpc GetTask(GetTaskRequest) returns (GetTaskReply);
   rpc ListTasks(ListTasksRequest) returns (ListTasksReply);
   rpc ListWorkers(ListWorkersRequest) returns (ListWorkersReply);
