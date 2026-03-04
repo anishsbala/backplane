@@ -30,6 +30,9 @@ public:
                     bool success,
                     int64_t result,
                     const std::string& error);
+  bool preemptIfHigherPriority(const std::string& task_id,
+                               const std::string& worker_id,
+                               int* queued_priority);
   bool getTask(const std::string& task_id, TaskRecord* task);
   std::vector<TaskRecord> listTasks();
   std::vector<WorkerRecord> listWorkers();
