@@ -1,4 +1,5 @@
 #include "redis_store.h"
+#include "scheduler_policy.h"
 
 #include <algorithm>
 #include <chrono>
@@ -285,6 +286,54 @@ bool RedisStore::completeTask(const std::string& task_id,
   return true;
 }
 
+bool RedisStore::preemptIfHigherPriority(const std::string& task_id,
+                                         const std::string& worker_id,
+                                         int* queued_priority) {
+  std::lock_guard<std::mutex> guard(mutex_);
+  if (!isOwnedByLocked(task_id, worker_id)) return false;
+
+  ReplyPtr top_reply(static_cast<redisReply*>(
+      redisCommand(context_, "ZREVRANGE backplane:pending 0 0")));
+  if (top_reply == nullptr
+      || top_reply->type != REDIS_REPLY_ARRAY
+      || top_reply->elements == 0
+      || top_reply->element[0]->str == nullptr) {
+    return false;
+  }
+
+  TaskRecord running;
+  TaskRecord queued;
+  const std::string queued_id = top_reply->element[0]->str;
+  if (!readTaskLocked(task_id, &running)
+      || !readTaskLocked(queued_id, &queued)
+      || !scheduler_policy::shouldPreempt(running.priority, queued.priority)) {
+    return false;
+  }
+
+  ReplyPtr remove_reply(static_cast<redisReply*>(
+      redisCommand(context_, "ZREM backplane:running %s", task_id.c_str())));
+  if (!replyOk(remove_reply.get())) return false;
+
+  running.status = "QUEUED";
+  running.worker_id = "";
+  running.lease_expires_at = 0;
+  running.updated_at = nowSeconds();
+  running.preemptions += 1;
+  running.attempts = std::max(0, running.attempts - 1);
+  writeTaskLocked(running);
+  enqueueLocked(running.id, running.priority);
+  clearWorkerTaskLocked(worker_id);
+  appendEventLocked(
+      "PREEMPT",
+      task_id,
+      worker_id,
+      "yielded priority " + std::to_string(running.priority)
+          + " for priority " + std::to_string(queued.priority));
+
+  if (queued_priority != nullptr) *queued_priority = queued.priority;
+  return true;
+}
+
 bool RedisStore::getTask(const std::string& task_id, TaskRecord* task) {
   std::lock_guard<std::mutex> guard(mutex_);
   return readTaskLocked(task_id, task);
@@ -454,6 +503,7 @@ bool RedisStore::readTaskLocked(const std::string& task_id, TaskRecord* task) {
   record.priority = toInt(getField(fields, "priority"), 1);
   record.max_attempts = toInt(getField(fields, "max_attempts"), 3);
   record.attempts = toInt(getField(fields, "attempts"));
+  record.preemptions = toInt(getField(fields, "preemptions"));
   record.status = getField(fields, "status", "QUEUED");
   record.worker_id = getField(fields, "worker_id");
   record.checkpoint = toInt64(getField(fields, "checkpoint"), record.range_start);
@@ -477,7 +527,7 @@ bool RedisStore::isOwnedByLocked(const std::string& task_id, const std::string& 
 void RedisStore::writeTaskLocked(const TaskRecord& task) {
   ReplyPtr reply(static_cast<redisReply*>(redisCommand(
       context_,
-      "HSET backplane:task:%s id %s name %s kind %d range_start %lld range_end %lld chunk_size %d priority %d max_attempts %d attempts %d status %s worker_id %s checkpoint %lld result %lld progress_percent %d error %s created_at %lld updated_at %lld lease_expires_at %lld",
+      "HSET backplane:task:%s id %s name %s kind %d range_start %lld range_end %lld chunk_size %d priority %d max_attempts %d attempts %d preemptions %d status %s worker_id %s checkpoint %lld result %lld progress_percent %d error %s created_at %lld updated_at %lld lease_expires_at %lld",
       task.id.c_str(),
       task.id.c_str(),
       task.name.c_str(),
@@ -488,6 +538,7 @@ void RedisStore::writeTaskLocked(const TaskRecord& task) {
       task.priority,
       task.max_attempts,
       task.attempts,
+      task.preemptions,
       task.status.c_str(),
       task.worker_id.c_str(),
       static_cast<long long>(task.checkpoint),
