@@ -105,6 +105,20 @@ public:
     return grpc::Status::OK;
   }
 
+  grpc::Status MaybePreempt(
+      grpc::ServerContext*,
+      const backplane::MaybePreemptRequest* request,
+      backplane::MaybePreemptReply* reply) override {
+    int queued_priority = 0;
+    const bool preempted = store_->preemptIfHigherPriority(
+        request->task_id(), request->worker_id(), &queued_priority);
+    reply->set_preempted(preempted);
+    reply->set_queued_priority(queued_priority);
+    reply->set_message(
+        preempted ? "yielded for higher-priority work" : "continue current task");
+    return grpc::Status::OK;
+  }
+
   grpc::Status GetTask(grpc::ServerContext*,
                        const backplane::GetTaskRequest* request,
                        backplane::GetTaskReply* reply) override {
