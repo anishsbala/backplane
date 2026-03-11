@@ -19,7 +19,7 @@ bool isPrime(int64_t value) {
   if (value == 2) return true;
   if (value % 2 == 0) return false;
 
-  for (int64_t i = 3; i * i <= value; i += 2) {
+  for (int64_t i = 3; i <= value / i; i += 2) {
     if (value % i == 0) return false;
   }
 
@@ -146,6 +146,22 @@ private:
     return status.ok() && reply.ok();
   }
 
+  bool maybePreempt(const backplane::Task& task) {
+    grpc::ClientContext context;
+    backplane::MaybePreemptRequest request;
+    backplane::MaybePreemptReply reply;
+
+    request.set_task_id(task.id());
+    request.set_worker_id(worker_id_);
+    grpc::Status status = stub_->MaybePreempt(&context, request, &reply);
+    if (status.ok() && reply.preempted()) {
+      std::cout << worker_id_ << " yielded " << task.id()
+                << " for queued priority " << reply.queued_priority() << "\n";
+      return true;
+    }
+    return false;
+  }
+
   void runPrimeCount(const backplane::Task& task) {
     if (task.kind() != backplane::PRIME_COUNT) {
       failTask(task, "worker only supports PRIME_COUNT", task.result());
@@ -191,6 +207,10 @@ private:
       if (crash_after_ > 0 && checkpoints >= crash_after_) {
         std::cout << worker_id_ << " simulating crash after checkpoint " << checkpoints << "\n";
         std::exit(2);
+      }
+
+      if (maybePreempt(task)) {
+        return;
       }
 
       std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms_));
