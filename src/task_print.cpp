@@ -35,6 +35,7 @@ void fillProtoTask(const TaskRecord& record, backplane::Task* task) {
   task->set_priority(record.priority);
   task->set_max_attempts(record.max_attempts);
   task->set_attempts(record.attempts);
+  task->set_preemptions(record.preemptions);
   task->set_status(statusFromString(record.status));
   task->set_worker_id(record.worker_id);
   task->set_checkpoint(record.checkpoint);
@@ -67,6 +68,7 @@ void printTask(const backplane::Task& task) {
   std::cout << "  status:      " << statusToString(task.status()) << "\n";
   std::cout << "  priority:    " << task.priority() << "\n";
   std::cout << "  attempts:    " << task.attempts() << "/" << task.max_attempts() << "\n";
+  std::cout << "  preemptions: " << task.preemptions() << "\n";
   std::cout << "  worker:      " << (task.worker_id().empty() ? "-" : task.worker_id()) << "\n";
   std::cout << "  range:       " << task.range_start() << " to " << task.range_end() << "\n";
   std::cout << "  checkpoint:  " << task.checkpoint() << "\n";

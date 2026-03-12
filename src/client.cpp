@@ -86,6 +86,7 @@ public:
                 << " | " << statusToString(task.status())
                 << " | priority=" << task.priority()
                 << " | attempts=" << task.attempts() << "/" << task.max_attempts()
+                << " | preemptions=" << task.preemptions()
                 << " | progress=" << task.progress_percent() << "%"
                 << " | checkpoint=" << task.checkpoint()
                 << " | result=" << task.result()
