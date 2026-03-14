@@ -81,6 +81,7 @@ function renderTasks(tasks) {
         <td><span class="badge ${status}">${status}</span></td>
         <td>${escapeHtml(task.priority)}</td>
         <td>${escapeHtml(task.attempts)}/${escapeHtml(task.max_attempts)}</td>
+        <td>${escapeHtml(task.preemptions || 0)}</td>
         <td>
           <div class="progress-shell"><div class="progress-fill" style="width: ${progress}%"></div></div>
           <span class="progress-label">${progress}%</span>
