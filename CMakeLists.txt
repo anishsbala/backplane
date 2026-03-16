@@ -3,7 +3,11 @@ project(backplane LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+add_compile_options(-Wall -Wextra -Wpedantic)
+
+include(CTest)
 
 find_package(Protobuf REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
@@ -62,3 +66,9 @@ target_link_libraries(backplane_worker PRIVATE backplane_core)
 
 add_executable(backplane_client src/client.cpp)
 target_link_libraries(backplane_client PRIVATE backplane_core)
+
+if(BUILD_TESTING)
+  add_executable(scheduler_policy_test tests/scheduler_policy_test.cpp)
+  target_include_directories(scheduler_policy_test PRIVATE include)
+  add_test(NAME scheduler_policy_test COMMAND scheduler_policy_test)
+endif()
