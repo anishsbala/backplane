@@ -3,21 +3,34 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
 
   coordinator:
     build: .
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     ports:
       - "50051:50051"
     command: ["./build/backplane_server", "0.0.0.0:50051", "redis", "6379", "5"]
+    healthcheck:
+      test: ["CMD", "./build/backplane_client", "localhost:50051", "stats"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
 
   dashboard:
     build:
       context: .
       dockerfile: dashboard/Dockerfile
     depends_on:
-      - coordinator
+      coordinator:
+        condition: service_healthy
     ports:
       - "8080:8080"
     environment:
@@ -26,13 +39,15 @@ services:
   worker-a:
     build: .
     depends_on:
-      - coordinator
+      coordinator:
+        condition: service_healthy
     profiles: ["workers"]
     command: ["./build/backplane_worker", "coordinator:50051", "worker-a", "--sleep-ms", "120"]
 
   worker-b:
     build: .
     depends_on:
-      - coordinator
+      coordinator:
+        condition: service_healthy
     profiles: ["workers"]
     command: ["./build/backplane_worker", "coordinator:50051", "worker-b", "--sleep-ms", "160"]
