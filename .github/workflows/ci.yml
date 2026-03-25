@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            libgrpc++-dev \
+            libhiredis-dev \
+            libprotobuf-dev \
+            protobuf-compiler \
+            protobuf-compiler-grpc
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Run unit tests
+        run: ctest --test-dir build --output-on-failure
+
+  recovery-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify measured crash recovery
+        run: ./scripts/run_recovery_benchmark.sh
+      - name: Print service logs on failure
+        if: failure()
+        run: docker compose logs
