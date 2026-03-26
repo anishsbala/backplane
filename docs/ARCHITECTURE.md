@@ -38,6 +38,14 @@ score = priority * 1,000,000,000 - queue_sequence
 
 The coordinator uses `ZREVRANGE` to lease the highest score first. That means higher-priority tasks run first, and tasks with the same priority run in FIFO order.
 
+## Cooperative preemption
+
+After every durable checkpoint, a worker asks the coordinator whether higher-priority work is waiting. If the highest queued priority exceeds the running task's priority, the coordinator returns the running task to the queue without changing its checkpoint or partial result. The same worker can then lease the urgent task.
+
+Preemption occurs only at checkpoint boundaries. This avoids discarding completed chunks and makes the yield operation observable as a `PREEMPT` event. Each task records its preemption count.
+
+Run `./scripts/run_preemption_demo.sh` to verify that a low-priority task yields, an urgent task completes first, and the original task retains its checkpoint.
+
 ## Checkpointing
 
 Each worker processes one chunk at a time. After a chunk, it sends:
@@ -51,6 +59,8 @@ progress_percent
 ```
 
 The coordinator writes those fields to `backplane:task:<id>`. If a worker crashes, another worker resumes from `checkpoint` and keeps the saved `result`.
+
+The executable recovery benchmark crashes a worker after 38 of 40 chunks, verifies that Redis contains 95% progress, waits for lease expiry, and confirms that a replacement worker completes from the saved checkpoint.
 
 ## Crash recovery
 
