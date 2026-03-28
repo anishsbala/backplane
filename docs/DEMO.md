@@ -37,7 +37,19 @@ Point out:
 - checkpoints update Redis after every chunk,
 - the dashboard is reading coordinator state live.
 
-## 4. Crash recovery
+## 4. Priority preemption
+
+```bash
+./scripts/run_preemption_demo.sh
+```
+
+Point out:
+
+- the low-priority task yields only after saving a checkpoint,
+- the urgent task is leased and completed first,
+- the event stream records a `PREEMPT` transition.
+
+## 5. Crash recovery
 
 ```bash
 ./scripts/run_crash_demo.sh
@@ -50,7 +62,19 @@ Point out:
 - the coordinator requeues it after the lease expires,
 - another worker resumes from the saved checkpoint.
 
-## 5. Retry handling
+## 6. Measured recovery
+
+```bash
+./scripts/run_recovery_benchmark.sh
+```
+
+Point out:
+
+- the worker crashes after completing 38 of 40 chunks,
+- 95% progress is read back from Redis,
+- a replacement worker finishes from the saved checkpoint.
+
+## 7. Retry handling
 
 ```bash
 ./scripts/run_retry_demo.sh
