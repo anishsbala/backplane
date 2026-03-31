@@ -21,9 +21,11 @@ The demo task is `PRIME_COUNT`: count how many prime numbers exist in a numeric 
 - Store task state, worker state, queue state, and event logs in Redis
 - Lease queued tasks to worker processes
 - Use Redis sorted sets for priority scheduling
+- Cooperatively preempt lower-priority work at durable checkpoint boundaries
 - Checkpoint after each chunk of work
 - Retry normal task failures until `max_attempts`
 - Requeue unfinished work when a worker crashes or stops heartbeating
+- Verify 95% checkpoint recovery with an executable crash benchmark
 - Track workers and coordinator events
 - Observe everything from a web dashboard at `localhost:8080`
 
@@ -154,9 +156,31 @@ This simulates a normal task error rather than a process crash:
 
 The first worker reports a failure after two checkpoints. The coordinator puts the task back in the queue if attempts remain.
 
-## Why the 95% recovery claim is reasonable
+## Priority preemption demo
 
-Each worker checkpoints after every chunk. If a task has a range of `1..1,000,000` and a chunk size of `25,000`, then at most one uncheckpointed chunk is lost during a crash. That is 2.5% of the total work, so 97.5% of completed work can be restored from Redis. Smaller chunks increase recovery precision at the cost of more checkpoint writes.
+```bash
+./scripts/run_preemption_demo.sh
+```
+
+The script starts a low-priority task, queues urgent work while it is running, and verifies that the worker yields at its next checkpoint. The high-priority task completes first, while the interrupted task keeps its checkpoint and partial result.
+
+## Measured 95% crash recovery
+
+```bash
+./scripts/run_recovery_benchmark.sh
+```
+
+The benchmark uses 40 chunks and crashes a worker after checkpoint 38. It reads the task back from Redis, requires at least 95% saved progress, waits for the coordinator to requeue the expired lease, and confirms that a replacement worker completes the task.
+
+This is an executable integration check rather than a theoretical estimate. Smaller chunks increase recovery precision at the cost of more checkpoint writes.
+
+## Tests
+
+```bash
+cmake -S . -B build
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
 
 ## Redis data model
 
