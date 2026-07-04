@@ -7,8 +7,6 @@ Backplane is a fault-tolerant C++ task-processing system. A gRPC coordinator sch
 
 The demo task is `PRIME_COUNT`: count how many prime numbers exist in a numeric range. It is CPU-bound and easy to split into chunks, which makes checkpointing and recovery visible.
 
-![Backplane dashboard showing a preempted low-priority task and completed urgent task](docs/assets/dashboard.png)
-
 ## Stack
 
 - C++17
