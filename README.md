@@ -1,8 +1,13 @@
 # Backplane
 
-Backplane is a C++ distributed task-processing demo. A coordinator accepts tasks over gRPC, stores task state in Redis, leases work to worker processes, saves checkpoints, retries failed work, and requeues unfinished tasks after worker crashes.
+[![CI](https://github.com/anishsbala/backplane/actions/workflows/ci.yml/badge.svg)](https://github.com/anishsbala/backplane/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+Backplane is a fault-tolerant C++ task-processing system. A gRPC coordinator schedules Redis-backed work across worker processes, preserves durable checkpoints, retries failures, recovers expired leases, and cooperatively preempts low-priority tasks.
 
 The demo task is `PRIME_COUNT`: count how many prime numbers exist in a numeric range. It is CPU-bound and easy to split into chunks, which makes checkpointing and recovery visible.
+
+![Backplane dashboard showing a preempted low-priority task and completed urgent task](docs/assets/dashboard.png)
 
 ## Stack
 
@@ -28,6 +33,21 @@ The demo task is `PRIME_COUNT`: count how many prime numbers exist in a numeric 
 - Verify 95% checkpoint recovery with an executable crash benchmark
 - Track workers and coordinator events
 - Observe everything from a web dashboard at `localhost:8080`
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Client[CLI / dashboard] -->|gRPC| Coordinator
+    Coordinator -->|task state, queues, leases| Redis[(Redis)]
+    WorkerA[Worker A] -->|lease, heartbeat, checkpoint| Coordinator
+    WorkerB[Worker B] -->|lease, heartbeat, checkpoint| Coordinator
+    Coordinator -->|priority work| WorkerA
+    Coordinator -->|priority work| WorkerB
+    Coordinator -->|events and status| Dashboard[Dashboard API]
+```
+
+The coordinator is the scheduling authority; Redis stores durable task state, priority queues, leases, worker heartbeats, checkpoints, and the event stream used by the dashboard.
 
 ## Project layout
 
@@ -196,3 +216,10 @@ backplane:next_task_id       integer task id counter
 backplane:next_event_id      integer event id counter
 backplane:queue_seq          integer used to keep FIFO ordering inside same priority
 ```
+
+## Current limitations
+
+- The coordinator is a single scheduling authority rather than a replicated control plane.
+- Workers execute the built-in CPU-bound prime-count task; a plugin task interface is future work.
+- Redis is configured as a single local instance for deterministic demos.
+- Authentication, encrypted service-to-service transport, and multi-tenant isolation are outside the current lab scope.
