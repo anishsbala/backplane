@@ -32,7 +32,23 @@ if [[ "$progress" -lt 95 ]]; then
   exit 1
 fi
 
-sleep 7
+requeued=false
+for _ in $(seq 1 20); do
+  recovery_status=$("${client[@]}" status "$task_id")
+  task_status=$(awk '/status:/ {print $2}' <<<"$recovery_status")
+  if [[ "$task_status" == "QUEUED" ]]; then
+    requeued=true
+    break
+  fi
+  sleep 1
+done
+
+if [[ "$requeued" != "true" ]]; then
+  echo "Task was not requeued after its worker lease expired"
+  echo "$recovery_status"
+  exit 1
+fi
+
 "${worker[@]}" recovery-worker --sleep-ms 1 --once
 final_status=$("${client[@]}" status "$task_id")
 grep -q "status:      DONE" <<<"$final_status"
